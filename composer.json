@@ -1,0 +1,16 @@
+{
+  "name": "bechwell/db",
+  "description": "db",
+  "authors": [
+    {
+      "name": "wassim bechwell",
+      "email": "bechwell.w@gmail.com"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "BW\\": "src"
+    }
+  },
+  "require": {}
+}
