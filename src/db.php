@@ -26,7 +26,7 @@ class dbkernel{
         if(is_array($txt) || is_a($txt,"dbArray")) $txt = print_r($txt,true);
         self::emit("log",$txt);
     }
-    static function add($name,$host,$dbname,$user,$pass,$port = null){
+    static function add($name,$host,$dbname,$user="root",$pass="",$port = null){
         self::$listdb[$name] = [
             "name"   => $name,
             "host"   => $host,
@@ -61,11 +61,11 @@ class dbkernel{
                     $cnx = "mysql:host=".$data["host"].";"
                             .(empty($data["port"])?"":"port=".$data["port"].";")
                             ."dbname=".$data["dbname"];
-                    $db = new PDO($cnx ,$data["user"],$data["pass"]);
+                    $db = new \PDO($cnx ,$data["user"],$data["pass"]);
                     $db->query("SET NAMES utf8");
-                    $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-                    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-                } catch (Exception $e) {
+                    $db->setAttribute(\PDO::ATTR_DEFAULT_FETCH_MODE, \PDO::FETCH_ASSOC);
+                    $db->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+                } catch (\Exception $e) {
                     $db = null;
                     echo "Erreur connection : $name : ".$e->getMessage();
                     return false;
