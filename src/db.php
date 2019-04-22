@@ -124,7 +124,104 @@ class dbkernel{
         return self::$pdo->lastinsertId();
     }
 }
+class db extends dbkernel{
+    static function decode($row,$array = false){
+        return $array ? $row : new dbArray($row);
+    }
+    static $listTables = [];
+    static function create($tableName,$callback = null){
+        if (!array_key_exists($tableName, self::$listTables)) {
+            self::$listTables[$tableName] = new dbTable($tableName);
+        }
+        if(is_callable($callback)){
+            $callback(self::$listTables[$tableName]);
+        }
+        return self::$listTables[$tableName];
+    }
+    static function sql($sql,$data = []){
+        return self::query($sql,$data);
+    }
+    static function q($sql,$data = []){
+        return self::query($sql,$data);
+    }
+    static function row($sql,$data = [],$array = false){
+        if ($q = self::query($sql,$data)) {
+            if ($row = $q->fetch()) {
+                return self::decode($row,$array);
+            }
+            return null;
+        }
+        return null;
+    }
+    static function select($sql,$data = [],$array = false){
+        if ($q = self::query($sql,$data)) {
+            $table = $array?[]:new dbArray();
+            while ($row = $q->fetch()) {
+                $table[] = self::decode($row,$array);
+            }
+            return $table;
+        }
+        return $array?[]:new dbArray();
+    }
+    static function val($sql,$data = [],$colname = null,$default = null){
+        if($row = self::row($sql,$data)){
+            return $row->first($default);
+        }
+        return $default;
+    }
 
+
+    static function table($tableName){
+        return self::$listTables[$tableName];
+    }
+    static function install(){
+        foreach (self::$listTables as $key => $table) {
+            $table->install();
+        }
+    }
+    static function insert($name,$data){
+        $rep = self::getColsFromData($name,$data);
+        $sql = $rep["sql"];
+        db::query("UPDATE `$name` SET $sql", $rep["data"]);
+        return db::id();
+    }
+    static function update($name,$filtre,$data){
+        $rep = self::getColsFromData($name,$data);
+        $fil = self::getColsFromData($name,$filtre," and ","filter");
+        $sql = $rep["sql"];
+        $update = $fil["sql"];
+        $dd = array_merge($rep["data"],$fil["data"]);
+        db::query("UPDATE `$name` SET $sql WHERE $update", $dd);
+    } 
+    static function save($name,$data){
+        $rep = self::getColsFromData($name,$data);
+        $sql = $rep["sql"];
+        $update = $rep["update"];
+        db::query("INSERT INTO `$name` SET $sql ON DUPLICATE KEY UPDATE $update",$rep["data"]);
+    }
+    static function getColsFromData($tablename,$data,$sep = ", ",$prefix = "data"){
+        $rep = [
+            "cols" => [],
+            "sql" => [],
+            "data" => [],
+            "update" => []
+        ];
+        $cols = db::select("SELECT table_schema as base, table_name, column_name as col,column_type as type,data_type,column_key,extra  from information_schema.columns where table_schema = '".db::$listdb[db::$name]["dbname"]."' and table_name='$tablename' order by ordinal_position");
+        $rep["cols"] = $cols->map(function($col){
+            return $col["col"];
+        });
+        foreach($rep["cols"] as $key => $value){
+            if(isset($data[$value])){
+                $rep["sql"][] = "`$value`=:".$prefix."_$value";
+                $rep["update"][] = "`$value`=VALUES(`$value`)";
+                $rep["data"][":".$prefix."_$value"] = $data[$value];
+            }
+        }
+        $rep["sql"] = join($sep, $rep["sql"]);
+        $rep["update"] = join(",", $rep["update"]);
+        return $rep;
+    }
+}
 class dbPDE{
     var $props = [];
     var $data = [];
@@ -612,62 +709,7 @@ class dbTableCol extends dbPDE{
     }
 }
 
-class db extends dbkernel{
-    static function decode($row,$array = false){
-        return $array ? $row : new dbArray($row);
-    }
-    static $listTables = [];
-    static function create($tableName,$callback = null){
-        if (!array_key_exists($tableName, self::$listTables)) {
-            self::$listTables[$tableName] = new dbTable($tableName);
-        }
-        if(is_callable($callback)){
-            $callback(self::$listTables[$tableName]);
-        }
-        return self::$listTables[$tableName];
-    }
-    static function sql($sql,$data = []){
-        return self::query($sql,$data);
-    }
-    static function q($sql,$data = []){
-        return self::query($sql,$data);
-    }
-    static function row($sql,$data = [],$array = false){
-        if ($q = self::query($sql,$data)) {
-            if ($row = $q->fetch()) {
-                return self::decode($row,$array);
-            }
-            return null;
-        }
-        return null;
-    }
-    static function select($sql,$data = [],$array = false){
-        if ($q = self::query($sql,$data)) {
-            $table = $array?[]:new dbArray();
-            while ($row = $q->fetch()) {
-                $table[] = self::decode($row,$array);
-            }
-            return $table;
-        }
-        return $array?[]:new dbArray();
-    }
-    static function val($sql,$data = [],$colname = null,$default = null){
-        if($row = self::row($sql,$data)){
-            return $row->first($default);
-        }
-        return $default;
-    }
 
-
-    static function table($tableName){
-        return self::$listTables[$tableName];
-    }
-    static function install(){
-        foreach (self::$listTables as $key => $table) {
-            $table->install();
-        }
-    }
-}
 
 class dbQuery{
     var $_tableName = "";
